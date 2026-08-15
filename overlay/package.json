@@ -1,0 +1,42 @@
+{
+  "name": "token-widget",
+  "version": "2.0.0",
+  "description": "Token 消耗悬浮浮窗（Cluely 式透明置顶 Electron 浮层，独立软件）",
+  "main": "electron-main.js",
+  "scripts": {
+    "gen-icons": "python ../scripts/gen-icons.py",
+    "prestart": "npm run gen-icons",
+    "start": "electron .",
+    "prebuild": "npm run gen-icons",
+    "build": "electron-builder",
+    "build:portable": "electron-builder --win portable",
+    "build:nsis": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.haida.tokenwidget",
+    "productName": "Token Widget",
+    "files": [
+      "electron-main.js",
+      "preload.js",
+      "widget.html",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": ["portable", "nsis"],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "directories": {
+      "output": "../dist"
+    }
+  }
+}

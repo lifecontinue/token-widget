@@ -1,0 +1,16 @@
+# Dependencies
+overlay/node_modules/
+
+# Build output
+dist/
+
+# Logs
+*.log
+
+# Generated assets (regenerate via `npm run gen-icons`)
+overlay/assets/*.png
+overlay/assets/*.ico
+
+# OS / editor
+.DS_Store
+Thumbs.db

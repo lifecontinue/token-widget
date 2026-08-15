@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Token Widget</title>
+<style>
+  :root{
+    --bg:#0b0f17;
+    --card:#10151f;
+    --glass:rgba(16,21,31,.92);
+    --glass3:rgba(11,15,23,.92);
+    --text:#e8ecf3;
+    --dim:#8b93a5;
+    --muted:#5b6472;
+    --c1:#34e3c8;   /* input */
+    --c2:#b69cff;   /* output */
+    --radius:18px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{
+    width:100%;height:100%;
+    background:transparent;   /* 关键：透明背景，只显示胶囊/卡片 */
+    overflow:hidden;
+    font-family:-apple-system,"SF Pro Text","Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    user-select:none;
+  }
+
+  /* ========== 主窗口：单行胶囊 ========== */
+  #pill{
+    width:100%;height:100%;
+    display:flex;align-items:center;gap:8px;
+    padding:0 8px 0 11px;
+    background:var(--glass3);
+    border-radius:999px;
+    /* 关键：透明窗口里不要用外阴影，否则阴影投射到圆角外 → 看起来像不透明背景残留。
+       改用内阴影描边。圆角外由 border-radius + overflow:hidden 保证透明。 */
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+    cursor:grab;
+    white-space:nowrap;
+    overflow:hidden;
+  }
+  #pill:active{cursor:grabbing}
+  #pill .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--c1);
+    box-shadow:0 0 8px var(--c1);
+    flex:0 0 auto;
+  }
+  #pill .brand{
+    font-size:12px;font-weight:600;letter-spacing:.2px;
+    color:var(--text);flex:0 0 auto;
+  }
+  #pill .nums{
+    flex:1 1 auto;min-width:0;
+    display:flex;align-items:center;gap:10px;
+    cursor:pointer;
+    padding:4px 2px;
+  }
+  #pill .nums .item{
+    display:inline-flex;align-items:baseline;gap:4px;
+    font-size:11px;color:var(--muted);
+    flex:0 0 auto;
+  }
+  #pill .nums .item b{
+    font-weight:700;font-size:13px;
+    font-variant-numeric:tabular-nums;
+    display:inline-block;min-width:34px;
+  }
+  #pill .nums .item.in b{color:var(--c1)}
+  #pill .nums .item.out b{color:var(--c2)}
+  #pill .close{
+    width:18px;height:18px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,.08);color:var(--muted);
+    font-size:14px;line-height:1;cursor:pointer;
+    flex:0 0 auto;
+    transition:background .15s,color .15s;
+  }
+  #pill .close:hover{background:rgba(255,120,120,.85);color:#fff}
+
+  /* ========== 详情 popup ========== */
+  #card{
+    width:100%;height:100%;
+    background:var(--glass);
+    border-radius:var(--radius);
+    /* 同样去掉外阴影，圆角外保持透明 */
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05), inset 0 0 0 1px rgba(255,255,255,.03);
+    display:flex;flex-direction:column;
+    padding:14px 16px;
+  }
+  #card .head{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:12px;
+  }
+  #card .head .title{
+    font-size:13px;font-weight:700;letter-spacing:.3px;
+  }
+  #card .head .close{
+    width:22px;height:22px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,.08);color:var(--muted);
+    font-size:15px;line-height:1;cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  #card .head .close:hover{background:rgba(255,120,120,.85);color:#fff}
+
+  .kpi{
+    display:grid;grid-template-columns:1fr 1fr;
+    gap:10px;margin-bottom:14px;
+  }
+  .kpi .box{
+    background:rgba(255,255,255,.04);
+    border-radius:12px;padding:12px;
+  }
+  .kpi .box .label{font-size:10.5px;color:var(--muted);margin-bottom:5px}
+  .kpi .box .val{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+  .kpi .box.in .val{color:var(--c1)}
+  .kpi .box.out .val{color:var(--c2)}
+  .kpi .box .sub{font-size:10px;color:var(--dim);margin-top:3px}
+
+  .sec-title{font-size:11px;color:var(--dim);font-weight:600;margin:0 0 8px;letter-spacing:.4px}
+
+  .models{
+    flex:1 1 auto;overflow-y:auto;
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .models::-webkit-scrollbar{width:5px}
+  .models::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+  .mrow{
+    display:flex;align-items:center;gap:8px;
+    background:rgba(255,255,255,.03);
+    border-radius:9px;padding:7px 10px;
+  }
+  .mrow .name{flex:1 1 auto;min-width:0;font-size:11.5px;color:var(--text);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mrow .cnt{font-size:10px;color:var(--muted);flex:0 0 auto}
+  .mrow .tot{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;flex:0 0 auto;color:var(--text)}
+
+  .foot{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);
+  }
+  .foot .hint{font-size:10px;color:var(--muted)}
+  .foot .refresh{cursor:pointer;font-size:10px;color:var(--dim)}
+  .foot .refresh:hover{color:var(--text)}
+</style>
+</head>
+<body>
+<!-- 主窗口：单行胶囊 -->
+<div id="pill" style="display:none">
+  <span class="dot"></span>
+  <span class="brand">当前对话</span>
+  <span class="nums" id="nums" title="点击查看详情">
+    <span class="item in">In<b id="in">--</b></span>
+    <span class="item out">Out<b id="out">--</b></span>
+  </span>
+  <span class="close" id="btnClose" title="隐藏到托盘">×</span>
+</div>
+
+<!-- 详情 popup -->
+<div id="card" style="display:none">
+  <div class="head">
+    <span class="title">Token 消耗详情</span>
+    <span class="close" id="popupClose" title="关闭 (Esc)">×</span>
+  </div>
+  <div class="kpi">
+    <div class="box in">
+      <div class="label">当前对话 Input</div>
+      <div class="val" id="kIn">--</div>
+      <div class="sub" id="kInSub">--</div>
+    </div>
+    <div class="box out">
+      <div class="label">当前对话 Output</div>
+      <div class="val" id="kOut">--</div>
+      <div class="sub" id="kOutSub">--</div>
+    </div>
+  </div>
+  <div class="sec-title">按模型 Token 消耗（累计）</div>
+  <div class="models" id="models"></div>
+  <div class="foot">
+    <span class="hint" id="hint">--</span>
+    <span class="refresh" id="refresh">刷新</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  var isPopup = location.hash === '#popup';
+  var api = window.api;   // Electron preload 暴露
+  var live = null;
+
+  function fmt(n){
+    if (n === null || n === undefined) return '--';
+    if (n >= 1e9) return (n/1e9).toFixed(1)+'B';
+    if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+    if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+    return String(n);
+  }
+
+  // ========== 主窗口渲染 ==========
+  function renderPill(){
+    var elIn = document.getElementById('in');
+    var elOut = document.getElementById('out');
+    if (!elIn || !elOut) return;
+    if (live && live.currentSession){
+      elIn.textContent = fmt(live.currentSession.input);
+      elOut.textContent = fmt(live.currentSession.output);
+    } else if (live){
+      elIn.textContent = fmt(live.input);
+      elOut.textContent = fmt(live.output);
+    }
+  }
+
+  // ========== 详情渲染 ==========
+  function renderPopup(){
+    if (!live) return;
+    var cur = live.currentSession;
+    var kIn = document.getElementById('kIn');
+    var kOut = document.getElementById('kOut');
+    if (cur){
+      kIn.textContent = fmt(cur.input);
+      kOut.textContent = fmt(cur.output);
+      document.getElementById('kInSub').textContent = cur.requests + ' 次请求';
+      document.getElementById('kOutSub').textContent = '会话 ' + String(cur.sessionId).slice(0,8);
+    } else {
+      kIn.textContent = fmt(live.input);
+      kOut.textContent = fmt(live.output);
+    }
+    // 模型明细
+    var box = document.getElementById('models');
+    box.innerHTML = '';
+    var list = live.byModel || [];
+    if (list.length === 0){
+      box.innerHTML = '<div style="font-size:11px;color:var(--muted)">暂无数据</div>';
+    }
+    list.slice(0, 20).forEach(function(m){
+      var row = document.createElement('div');
+      row.className = 'mrow';
+      row.innerHTML = '<span class="name"></span><span class="cnt"></span><span class="tot"></span>';
+      row.querySelector('.name').textContent = m.model;
+      row.querySelector('.cnt').textContent = m.n + ' 次';
+      row.querySelector('.tot').textContent = fmt(m.tot);
+      box.appendChild(row);
+    });
+    var hint = document.getElementById('hint');
+    hint.textContent = '累计 ' + fmt(live.total) + ' · 更新 ' + new Date(live.scannedAt).toLocaleTimeString();
+  }
+
+  function tick(){
+    if (api && api.readTokens){
+      try { live = api.readTokens(); } catch(e){ live = null; }
+    }
+    if (isPopup) renderPopup(); else renderPill();
+  }
+
+  // ========== 事件绑定 ==========
+  if (isPopup){
+    document.getElementById('card').style.display = 'flex';
+    document.getElementById('popupClose').addEventListener('click', function(){
+      if (api && api.closePopup) api.closePopup();
+    });
+    document.getElementById('refresh').addEventListener('click', tick);
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape'){ if (api && api.closePopup) api.closePopup(); }
+    });
+    setInterval(tick, 3000);
+    tick();
+  } else {
+    document.getElementById('pill').style.display = 'flex';
+    document.getElementById('nums').addEventListener('click', function(){
+      if (api && api.openPopup) api.openPopup();
+    });
+    document.getElementById('btnClose').addEventListener('click', function(){
+      if (api && api.hide) api.hide();
+    });
+
+    // ===== 手动拖拽（替代 -webkit-app-region:drag，避免透明窗口里拦截点击）=====
+    var pill = document.getElementById('pill');
+    var dragging = false, sx = 0, sy = 0, wx = 0, wy = 0;
+    pill.addEventListener('mousedown', function(e){
+      // × 按钮和数字区不触发拖拽（保留点击）
+      if (e.target.closest('.close') || e.target.closest('.nums')) return;
+      dragging = true;
+      sx = e.screenX; sy = e.screenY;
+      if (api && api.getBounds) {
+        api.getBounds().then(function(b){ if (b) { wx = b.x; wy = b.y; } });
+      }
+    });
+    window.addEventListener('mousemove', function(e){
+      if (!dragging) return;
+      if (api && api.moveTo) api.moveTo(wx + (e.screenX - sx), wy + (e.screenY - sy));
+    });
+    window.addEventListener('mouseup', function(){ dragging = false; });
+
+    setInterval(tick, 1500);
+    tick();
+  }
+})();
+</script>
+</body>
+</html>
