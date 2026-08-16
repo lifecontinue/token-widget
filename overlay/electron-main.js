@@ -58,7 +58,8 @@ function rememberWindowBounds() {
   if (!mainWin) return;
   try {
     const cfg = loadConfig();
-    cfg.windowPosition = mainWin.getBounds();
+    const b = mainWin.getBounds();
+    cfg.windowPosition = { x: b.x, y: b.y };   // 只存坐标；尺寸写死，防止意外 resize 的脏尺寸污染
     saveConfig(cfg);
   } catch (_) { /* 忽略 */ }
 }
@@ -89,10 +90,9 @@ if (!gotLock) {
     // 位置记忆：优先用上次保存的位置，否则屏幕居中
     const cfg = loadConfig();
     const saved = cfg.windowPosition;
-    const x = (saved && typeof saved.x === 'number' && typeof saved.y === 'number')
-      ? saved.x : Math.round((area.width - s.w) / 2);
-    const y = (saved && typeof saved.x === 'number' && typeof saved.y === 'number')
-      ? saved.y : Math.round((area.height - s.h) / 2);
+    const hasPos = saved && typeof saved.x === 'number' && typeof saved.y === 'number';
+    const x = hasPos ? saved.x : Math.round((area.width - s.w) / 2);
+    const y = hasPos ? saved.y : Math.round((area.height - s.h) / 2);
     mainWin = new BrowserWindow({
       width: s.w,
       height: s.h,
@@ -109,12 +109,19 @@ if (!gotLock) {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
+        sandbox: false,   // 关键：preload 需 require fs/os/path 扫描 token；Electron 20+ 默认 sandbox 会禁掉 → window.api 未暴露
         backgroundThrottling: true,   // 隐藏时降 CPU
         preload: path.join(__dirname, 'preload.js')
       }
     });
 
     makeOverlay(mainWin);
+    mainWin.setMinimumSize(s.w, s.h);
+    mainWin.setMaximumSize(s.w, s.h);
+    mainWin.on('resize', () => {           // 兜底：任何意外 resize 立即恢复写死尺寸
+      const [cw, ch] = mainWin.getSize();
+      if (cw !== s.w || ch !== s.h) mainWin.setSize(s.w, s.h);
+    });
     mainWin.loadFile(WIDGET_HTML);
     // 主窗口「关闭」= 销毁窗口、隐藏到托盘（不退出进程）
     mainWin.on('closed', () => { mainWin = null; });
@@ -158,12 +165,15 @@ if (!gotLock) {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
+        sandbox: false,   // 关键：preload 需 require fs/os/path 扫描 token；Electron 20+ 默认 sandbox 会禁掉 → window.api 未暴露
         backgroundThrottling: true,
         preload: path.join(__dirname, 'preload.js')
       }
     });
 
     makeOverlay(popupWin);
+    popupWin.setMinimumSize(s.w, s.h);
+    popupWin.setMaximumSize(s.w, s.h);
     popupWin.loadFile(WIDGET_HTML, { hash: 'popup' });
     popupWin.on('closed', () => { popupWin = null; });
   }
@@ -227,6 +237,12 @@ if (!gotLock) {
   // 手动拖拽：移动窗口
   ipcMain.on('move-to', (e, x, y) => {
     if (mainWin) mainWin.setPosition(Math.round(x), Math.round(y));
+  });
+  // 手动拖拽：增量移动（避免 getBounds 异步竞态 → 窗口跳变/触发系统 resize）
+  ipcMain.on('move-by', (e, dx, dy) => {
+    if (!mainWin) return;
+    const [x, y] = mainWin.getPosition();
+    mainWin.setPosition(Math.round(x + dx), Math.round(y + dy));
   });
 
   // ============ 生命周期 ============

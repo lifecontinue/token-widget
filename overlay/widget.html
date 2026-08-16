@@ -277,21 +277,21 @@
       if (api && api.hide) api.hide();
     });
 
-    // ===== 手动拖拽（替代 -webkit-app-region:drag，避免透明窗口里拦截点击）=====
+    // ===== 手动拖拽：增量移动（替代 app-region 和绝对坐标，避免异步竞态/窗口跳变/系统 resize）=====
     var pill = document.getElementById('pill');
-    var dragging = false, sx = 0, sy = 0, wx = 0, wy = 0;
+    var dragging = false, lastX = 0, lastY = 0;
     pill.addEventListener('mousedown', function(e){
       // × 按钮和数字区不触发拖拽（保留点击）
       if (e.target.closest('.close') || e.target.closest('.nums')) return;
       dragging = true;
-      sx = e.screenX; sy = e.screenY;
-      if (api && api.getBounds) {
-        api.getBounds().then(function(b){ if (b) { wx = b.x; wy = b.y; } });
-      }
+      lastX = e.screenX; lastY = e.screenY;
     });
     window.addEventListener('mousemove', function(e){
       if (!dragging) return;
-      if (api && api.moveTo) api.moveTo(wx + (e.screenX - sx), wy + (e.screenY - sy));
+      var dx = e.screenX - lastX, dy = e.screenY - lastY;
+      lastX = e.screenX; lastY = e.screenY;
+      if (dx === 0 && dy === 0) return;
+      if (api && api.moveBy) api.moveBy(dx, dy);
     });
     window.addEventListener('mouseup', function(){ dragging = false; });
 
