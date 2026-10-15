@@ -1,0 +1,18 @@
+{
+  "description": "Token Widget 插件 hooks：WorkBuddy 启动时自动拉起桌面 token 浮窗（联动触发）",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CODEBUDDY_PLUGIN_ROOT}/scripts/start_widget.sh\"",
+            "description": "WorkBuddy 打开时联动启动桌面 token 浮窗（幂等，重复触发自动跳过）",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>模型 Token 消耗</title>
+<script src="chart.umd.js"></script>
+<style>
+:root{
+  --bg:#080b16;
+  --glass:rgba(16,21,30,.82);
+  --glass2:rgba(30,38,52,.55);
+  --hair:rgba(255,255,255,.08);
+  --text:#f2f6fb; --muted:#9aa7b8; --dim:#6a7889;
+  --c1:#34e3c8; --c2:#b69cff; --c3:#ff9d57; --c4:#6fb3ff;
+  --c5:#ff8fc7; --c6:#67e89a; --c7:#ffe066; --c8:#ff7b7b;
+  --radius:22px; --radius-sm:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  color:var(--text);
+  font-family:-apple-system,"SF Pro Text","Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  font-size:13px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+  background:var(--bg);     /* 不透明深色窗口：body 深色铺满，SetWindowRgn 裁胶囊 */
+}
+
+/* ========== 主窗口：单行胶囊 ========== */
+#widget{
+  width:100%;height:100%;
+  display:flex;align-items:center;
+  padding:0 10px 0 12px;
+  gap:8px;
+  background:var(--bg);
+  border-radius:999px;
+  cursor:pointer; user-select:none;
+  -webkit-app-region:drag;
+  box-sizing:border-box;
+}
+#widget .dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--c1);
+  box-shadow:0 0 10px var(--c1);
+  flex:0 0 auto;
+}
+#widget .brand{
+  font-weight:600;font-size:12px;letter-spacing:.2px;
+  white-space:nowrap; color:#fff;
+  flex:0 0 auto;
+}
+#widget .numbers{
+  flex:1 1 auto;
+  display:flex;align-items:center;justify-content:flex-end;
+  gap:12px;
+  min-width:0;
+  overflow:hidden;
+}
+#widget .numbers .item{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:12px;
+  white-space:nowrap;
+  flex:0 0 auto;
+}
+#widget .numbers .item b{
+  font-weight:700;font-size:13.5px;font-variant-numeric:tabular-nums;
+  color:#fff;
+  display:inline-block;min-width:34px;
+}
+#widget .numbers .item .k{color:#9aa7b8;font-size:10.5px}
+#widget .numbers .item.in b{color:#34e3c8}
+#widget .numbers .item.out b{color:#b69cff}
+#widget .close{
+  -webkit-app-region:no-drag;
+  width:18px;height:18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.12);color:#9aa7b8;
+  font-size:14px;line-height:1;cursor:pointer;
+  flex:0 0 auto;
+  transition:background .15s,color .15s;
+}
+#widget .close:hover{background:rgba(255,123,123,.85);color:#fff}
+
+/* ========== Popup 详情窗口 ========== */
+#popup{
+  display:none;
+  width:100%;height:100%;
+  padding:14px 14px 16px;
+  background:var(--glass);
+  border-radius:var(--radius);
+  box-shadow:0 18px 55px rgba(0,0,0,.50), inset 0 0 0 1px rgba(255,255,255,.04);
+  flex-direction:column;
+  overflow:hidden;
+}
+#popup .head{
+  display:flex;align-items:center;gap:8px;margin-bottom:12px;
+  -webkit-app-region:drag;
+}
+#popup .head .dot{width:7px;height:7px;border-radius:50%;background:var(--c1);box-shadow:0 0 10px var(--c1)}
+#popup .head .title{font-weight:600;font-size:14px;letter-spacing:.2px}
+#popup .head .spacer{flex:1}
+#popup .head .close{
+  -webkit-app-region:no-drag;
+  width:22px;height:22px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.08);color:var(--muted);
+  font-size:16px;cursor:pointer;
+  transition:background .15s,color .15s;
+}
+#popup .head .close:hover{background:rgba(255,123,123,.85);color:#fff}
+
+#popup .body{
+  flex:1 1 auto;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding-right:2px;
+}
+#popup .body::-webkit-scrollbar{width:5px}
+#popup .body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
+.kpi{background:var(--glass2);border-radius:var(--radius-sm);padding:10px 12px;position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--k,var(--c1));border-radius:3px 0 0 3px}
+.kpi .lab{color:var(--muted);font-size:11px}
+.kpi .val{font-size:19px;font-weight:680;margin-top:2px;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.kpi .note{color:var(--dim);font-size:10px;margin-top:1px}
+
+/* split */
+.split{display:flex;gap:13px;flex-wrap:wrap;background:var(--glass2);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:10px;font-size:11.5px}
+.split .dim{color:var(--dim)}
+.dotc{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+.dotc.mgd{background:#ff9d57}.dotc.cust{background:#34e3c8}
+
+/* panels */
+.grid{display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-bottom:10px}
+.panel{background:var(--glass2);border-radius:var(--radius-sm);padding:11px 12px}
+.ptitle{font-size:12px;font-weight:600;margin-bottom:1px}
+.pdesc{color:var(--dim);font-size:10px;margin-bottom:9px}
+.cbox{position:relative;height:190px}
+
+/* table */
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{text-align:right;color:var(--muted);font-weight:500;font-size:10px;padding:4px 6px;border-bottom:1px solid var(--hair);white-space:nowrap}
+thead th:first-child{text-align:left}
+tbody td{padding:5px 6px;border-bottom:1px solid var(--hair);text-align:right;font-variant-numeric:tabular-nums}
+tbody td:first-child{text-align:left}
+tbody tr:last-child td{border-bottom:0}
+.bar{height:4px;border-radius:2px;background:var(--c1);display:inline-block;vertical-align:middle;margin-left:5px;opacity:.55}
+
+/* toolbar */
+.toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:9px}
+.btn{
+  -webkit-app-region:no-drag;cursor:pointer;
+  background:var(--glass2);border:none;border-radius:9px;
+  color:var(--text);font-size:11px;padding:5px 10px;
+  transition:background .15s,color .15s;
+}
+.btn:hover{background:rgba(255,255,255,.14)}
+.btn.primary{background:rgba(52,227,200,.18);color:var(--c1)}
+.sortgrp{display:inline-flex;gap:0;background:var(--glass2);border-radius:9px;overflow:hidden}
+.sortgrp .sb{padding:5px 9px;font-size:10.5px;color:var(--muted);cursor:pointer;-webkit-app-region:no-drag}
+.sortgrp .sb.on{background:rgba(52,227,200,.22);color:var(--c1)}
+
+footer{color:var(--dim);font-size:9.5px;text-align:center;margin-top:11px;line-height:1.6;opacity:.85}
+code{background:rgba(8,11,16,.7);padding:1px 5px;border-radius:4px;color:var(--c3);font-size:9.5px}
+
+#toast{
+  position:fixed;left:50%;bottom:14px;transform:translateX(-50%) translateY(20px);
+  background:rgba(8,11,16,.9);color:var(--text);font-size:11px;padding:6px 14px;border-radius:999px;
+  box-shadow:0 6px 20px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- 主窗口：单行胶囊 -->
+<div id="widget">
+  <span class="dot"></span>
+  <span class="brand" id="pillLabel">当前对话</span>
+  <span class="numbers" id="pillNumbers">
+    <span class="item in"><span class="k" style="color:#9aa7b8">In</span><b id="liveIn" style="color:#34e3c8">--</b></span>
+    <span class="item out"><span class="k" style="color:#9aa7b8">Out</span><b id="liveOut" style="color:#b69cff">--</b></span>
+  </span>
+  <span class="close" id="btnClose" title="关闭">×</span>
+</div>
+
+<!-- Popup 详情窗口 -->
+<div id="popup">
+  <div class="head">
+    <span class="dot"></span>
+    <span class="title">模型 Token 消耗详情</span>
+    <span class="spacer"></span>
+    <span class="close" id="btnPopupClose" title="关闭 (Esc)">×</span>
+  </div>
+  <div class="body">
+    <div class="kpis" id="kpis"></div>
+    <div class="split" id="split"></div>
+
+    <div class="toolbar">
+      <span style="color:var(--dim);font-size:10.5px">模型排序</span>
+      <span class="sortgrp" id="sortgrp">
+        <span class="sb on" data-k="tot">总量</span>
+        <span class="sb" data-k="bill">计费</span>
+        <span class="sb" data-k="n">请求</span>
+      </span>
+      <span style="flex:1"></span>
+      <button class="btn primary" id="btnRefresh">↻ 刷新</button>
+      <button class="btn" id="btnCopy">⧉ 复制</button>
+      <button class="btn" id="btnOpen">↗ 看板</button>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="ptitle">各模型占比</div>
+        <div class="pdesc">按总量拆分，看成本集中度</div>
+        <div class="cbox"><canvas id="chShare"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="ptitle">模型明细</div>
+        <div class="pdesc">计费 = 缓存未命中 + 输出</div>
+        <table id="tblModel">
+          <thead><tr>
+            <th>模型</th><th>Tokens</th><th>占比</th><th>缓存</th><th>计费</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer>
+      数据源：<code>~/.workbuddy/projects/**/*.jsonl</code> · 按 messageId 去重<br>
+      运行 <code>python extract.py</code> 刷新 · 与 <code>index.html</code> 共用 <code>data.js</code>
+    </footer>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="data.js"></script>
+<script>
+// ========== 环境识别 ==========
+const isElectron = /Electron/.test(navigator.userAgent || '');
+const hasPyw = !!(window.pywebview && window.pywebview.api);
+const isPopup = location.hash === '#popup';
+
+if (isPopup) {
+  document.getElementById('widget').style.display = 'none';
+  document.getElementById('popup').style.display = 'flex';
+} else {
+  document.getElementById('widget').style.display = 'flex';
+  document.getElementById('popup').style.display = 'none';
+}
+
+const D = window.TOKEN_DATA || { meta:{}, records:[] };
+const PAL = ['#34e3c8','#b69cff','#ff9d57','#6fb3ff','#ff8fc7','#67e89a','#ffe066','#ff7b7b','#38bdf8','#c084fc'];
+const TXT='#f2f6fb', MUT='#9aa7b8', GRID='rgba(255,255,255,.05)';
+Chart.defaults.color=MUT; Chart.defaults.borderColor=GRID;
+Chart.defaults.font.family='-apple-system,"SF Pro Text","Segoe UI","PingFang SC",system-ui,sans-serif';
+Chart.defaults.font.size=10.5; Chart.defaults.animation.duration=500;
+
+const fmt = n => { n=Number(n)||0; if(n>=1e9)return(n/1e9).toFixed(2)+'B'; if(n>=1e6)return(n/1e6).toFixed(1)+'M'; if(n>=1e3)return(n/1e3).toFixed(1)+'K'; return String(Math.round(n)); };
+const num = n => (Number(n)||0).toLocaleString('en-US');
+const pct = (a,b) => b ? (a/b*100).toFixed(1)+'%' : '0%';
+const esc = s => String(s??'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+// ========== 桥接 ==========
+function staticModelRows(){
+  const recs = D.records || [];
+  const bm = {};
+  recs.forEach(r => {
+    const m = bm[r.model] = bm[r.model] || {model:r.model, in:0, out:0, tot:0, cache:0, n:0};
+    m.in += r.in; m.out += r.out; m.tot += r.tot; m.cache += r.cache; m.n++;
+  });
+  return Object.values(bm);
+}
+async function readTokens(){
+  if (hasPyw && window.pywebview.api && window.pywebview.api.read_tokens){
+    try { const s = await window.pywebview.api.read_tokens(); s.live = true; return s; } catch(e){}
+  }
+  if (isElectron && window.api && window.api.readTokens){
+    try { const s = window.api.readTokens(); s.live = true; return s; } catch(e){}
+  }
+  const M = staticModelRows();
+  const input = M.reduce((a,o)=>a+o.in,0);
+  const output = M.reduce((a,o)=>a+o.out,0);
+  const total = M.reduce((a,o)=>a+o.tot,0);
+  return { input, output, total, requests:D.records.length, byModel:M, live:false, scannedAt:Date.now() };
+}
+async function openPopupRemote(){
+  if (hasPyw && window.pywebview.api && window.pywebview.api.open_popup){
+    try { return await window.pywebview.api.open_popup(); } catch(e){}
+  }
+  if (isElectron && window.api && window.api.openPopup){ try { window.api.openPopup(); return; } catch(e){} }
+}
+async function closePopupRemote(){
+  if (hasPyw && window.pywebview.api && window.pywebview.api.close_popup){
+    try { return await window.pywebview.api.close_popup(); } catch(e){}
+  }
+  if (isElectron && window.api && window.api.closePopup){ try { window.api.closePopup(); return; } catch(e){} }
+  try { window.close(); } catch(e){}
+}
+async function refreshRemote(){
+  if (hasPyw && window.pywebview.api && window.pywebview.api.refresh){ try { return await window.pywebview.api.refresh(); } catch(e){ return false; } }
+  if (isElectron && window.api && window.api.refresh){ try { window.api.refresh(); return true; } catch(e){} }
+  return false;
+}
+async function openFileRemote(p){
+  if (hasPyw && window.pywebview.api && window.pywebview.api.open_file){ try { return await window.pywebview.api.open_file(p); } catch(e){} }
+  if (isElectron && window.api && window.api.openFile){ try { window.api.openFile(p); return; } catch(e){} }
+  try { window.open(p); } catch(e){}
+}
+function closeMainWindow(){
+  if (hasPyw && window.pywebview.api && window.pywebview.api.close){ try { window.pywebview.api.close(); } catch(e){} return; }
+  if (isElectron && window.api){ try { window.close(); } catch(e){} return; }
+  try { window.close(); } catch(e){}
+}
+
+let baseline = null;
+let live = null;
+let sortKey = 'tot';
+let chart = null;
+
+// ========== 主窗口渲染 ==========
+function renderPill(){
+  const elIn = document.getElementById('liveIn');
+  const elOut = document.getElementById('liveOut');
+  const elNums = document.getElementById('pillNumbers');
+  const elLabel = document.getElementById('pillLabel');
+  if (!elIn || !elOut) return;
+
+  // 核心需求：显示当前轮次对话消耗的 tokens
+  if (live && live.currentSession){
+    const cur = live.currentSession;
+    elIn.textContent = fmt(cur.in);
+    elOut.textContent = fmt(cur.out);
+    if (elLabel) elLabel.textContent = '当前对话';
+    if (elNums) elNums.style.opacity = '1';
+  } else if (live){
+    // 无当前会话数据时退化为全部累计
+    elIn.textContent = fmt(live.input);
+    elOut.textContent = fmt(live.output);
+    if (elLabel) elLabel.textContent = '累计消耗';
+    if (elNums) elNums.style.opacity = '1';
+  } else {
+    elIn.textContent = '--';
+    elOut.textContent = '--';
+    if (elLabel) elLabel.textContent = '加载中';
+    if (elNums) elNums.style.opacity = '.55';
+  }
+}
+
+// ========== Popup 渲染 ==========
+function modelRows(){
+  return (live && live.byModel && live.byModel.length) ? live.byModel : staticModelRows();
+}
+function renderPopup(){
+  const M = modelRows();
+  const sumTot = M.reduce((a,o)=>a+o.tot,0) || 1;
+  const sumIn = M.reduce((a,o)=>a+o.in,0);
+  const sumOut = M.reduce((a,o)=>a+o.out,0);
+  const sumCache = M.reduce((a,o)=>a+o.cache,0);
+  const sumBill = M.reduce((a,o)=>a+((o.in-o.cache)+o.out),0);
+  const reqs = (live && live.requests) || D.records.length;
+  const meta = D.meta || {};
+
+  const items = [
+    ['总 Tokens', fmt(sumTot), num(sumTot), 'var(--c1)'],
+    ['计费 Tokens', fmt(sumBill), '占总量 '+pct(sumBill,sumTot), 'var(--c3)'],
+    ['缓存命中率', pct(sumCache,sumIn), '命中 '+fmt(sumCache), 'var(--c6)'],
+    ['LLM 请求数', num(reqs), '会话 '+ (meta.sessions||0) +' 个', 'var(--c4)']
+  ];
+  document.getElementById('kpis').innerHTML = items.map(i=>
+    `<div class="kpi" style="--k:${i[3]}"><div class="lab">${i[0]}</div><div class="val">${i[1]}</div><div class="note">${i[2]}</div></div>`).join('');
+
+  const custTot = M.filter(o=>String(o.model).toLowerCase().startsWith('custom-local')).reduce((a,o)=>a+o.tot,0);
+  const mgdTot = sumTot - custTot;
+  document.getElementById('split').innerHTML =
+    `<div><span class="dotc mgd"></span> 托管端点 <b>${num(mgdTot)}</b> <span class="dim">（${pct(mgdTot,sumTot)}）</span></div>`+
+    `<div><span class="dotc cust"></span> 自配 Key <b>${num(custTot)}</b> <span class="dim">（${pct(custTot,sumTot)}）</span></div>`;
+
+  if (chart) { chart.destroy(); chart = null; }
+  if (M.length){
+    chart = new Chart(document.getElementById('chShare').getContext('2d'), {
+      type:'doughnut',
+      data:{labels:M.map(x=>x.model), datasets:[{data:M.map(x=>x.tot), backgroundColor:PAL, borderColor:'rgba(0,0,0,.25)', borderWidth:2, hoverOffset:6}]},
+      options:{maintainAspectRatio:false, cutout:'56%',
+        plugins:{legend:{position:'right', labels:{boxWidth:9, boxHeight:9, usePointStyle:true, padding:9, font:{size:9.5}}},
+          tooltip:{callbacks:{label:c=>` ${c.label}: ${fmt(c.raw)} (${pct(c.raw,sumTot)})`}}}}
+    });
+  }
+  renderTable(M, sumTot, sumIn, sumCache, sumBill);
+}
+function renderTable(M, sumTot, sumIn, sumCache, sumBill){
+  const sorted = M.slice().sort((a,b)=>{
+    if (sortKey==='bill') return ((b.in-b.cache)+b.out) - ((a.in-a.cache)+a.out);
+    if (sortKey==='n') return b.n - a.n;
+    return b.tot - a.tot;
+  });
+  const maxTot = Math.max(1, ...sorted.map(o=>o.tot));
+  document.querySelector('#tblModel tbody').innerHTML = sorted.map(o=>{
+    const bill = (o.in-o.cache)+o.out;
+    const rate = o.in ? o.cache/o.in : 0;
+    return `<tr>
+      <td style="color:var(--text)">${esc(o.model)}</td>
+      <td><b>${num(o.tot)}</b><span class="bar" style="width:${Math.max(3,o.tot/maxTot*38)}px"></span></td>
+      <td style="color:var(--muted)">${(o.tot/sumTot*100).toFixed(1)}%</td>
+      <td style="color:${rate>0.9?'var(--c6)':rate>0.7?'var(--c7)':'var(--c8)'}">${(rate*100).toFixed(0)}%</td>
+      <td style="color:var(--c3)"><b>${num(bill)}</b></td>
+    </tr>`;
+  }).join('') + `
+    <tr style="background:rgba(255,255,255,.04)">
+      <td style="color:var(--c1);font-weight:600">合计</td>
+      <td style="color:var(--c1)"><b>${num(sumTot)}</b></td>
+      <td>100%</td>
+      <td style="color:var(--c1)"><b>${pct(sumCache,sumIn)}</b></td>
+      <td style="color:var(--c3)"><b>${num(sumBill)}</b></td>
+    </tr>`;
+}
+
+// ========== 交互 ==========
+if (!isPopup){
+  // 点击主窗口打开 popup（关闭按钮除外）
+  const widget = document.getElementById('widget');
+  let _dx0=0, _dy0=0;
+  widget.addEventListener('mousedown', e => { _dx0=e.clientX; _dy0=e.clientY; });
+  widget.addEventListener('mouseup', e => {
+    if (e.target.closest('.close')) return;
+    if (Math.abs(e.clientX-_dx0) < 4 && Math.abs(e.clientY-_dy0) < 4){
+      openPopupRemote();
+    }
+  });
+  document.getElementById('btnClose').addEventListener('click', e => { e.stopPropagation(); closeMainWindow(); });
+} else {
+  document.getElementById('btnPopupClose').addEventListener('click', () => closePopupRemote());
+  document.getElementById('sortgrp').addEventListener('click', e => {
+    const sb = e.target.closest('.sb'); if (!sb) return;
+    sortKey = sb.dataset.k;
+    document.querySelectorAll('#sortgrp .sb').forEach(x=>x.classList.toggle('on', x===sb));
+    const M = modelRows();
+    const sumTot = M.reduce((a,o)=>a+o.tot,0) || 1;
+    const sumIn = M.reduce((a,o)=>a+o.in,0);
+    const sumCache = M.reduce((a,o)=>a+o.cache,0);
+    const sumBill = M.reduce((a,o)=>a+((o.in-o.cache)+o.out),0);
+    renderTable(M, sumTot, sumIn, sumCache, sumBill);
+  });
+  document.getElementById('btnRefresh').addEventListener('click', async () => {
+    const ok = await refreshRemote();
+    toast(ok ? '已触发刷新…' : '请运行 python extract.py 刷新');
+    if (ok) setTimeout(tick, 1200);
+  });
+  document.getElementById('btnCopy').addEventListener('click', () => {
+    const M = modelRows().slice().sort((a,b)=>b.tot-a.tot);
+    let t = '模型\t总Tokens\t输入\t输出\t缓存命中\t计费\n';
+    M.forEach(o => { t += `${o.model}\t${o.tot}\t${o.in}\t${o.out}\t${o.cache}\t${(o.in-o.cache)+o.out}\n`; });
+    copyText(t).then(ok=>toast(ok?'明细已复制':'复制失败'), ()=>toast('复制失败'));
+  });
+  document.getElementById('btnOpen').addEventListener('click', async () => {
+    const url = new URL('index.html', location.href).href;
+    await openFileRemote(url.replace('file://',''));
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closePopupRemote();
+  });
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove('show'), 1600);
+}
+function copyText(t){
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(t).then(()=>true).catch(()=>fallbackCopy(t));
+  }
+  return Promise.resolve(fallbackCopy(t));
+}
+function fallbackCopy(t){
+  try { const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); const ok=document.execCommand('copy'); document.body.removeChild(ta); return ok; } catch(e){ return false; }
+}
+
+// ========== 实时轮询 ==========
+async function tick(){
+  const s = await readTokens();
+  if (baseline === null) baseline = s;
+  live = s;
+  renderPill();
+  if (isPopup) renderPopup();
+}
+setInterval(tick, 1500);
+
+// ========== 初始化（pywebview 的 api 函数异步注入，需轮询等待） ==========
+function waitForApi(timeout=8000){
+  return new Promise(resolve=>{
+    const t0 = Date.now();
+    (function check(){
+      if (hasPyw && window.pywebview && window.pywebview.api && typeof window.pywebview.api.read_tokens === 'function'){
+        resolve(true); return;
+      }
+      if (Date.now()-t0 > timeout){ resolve(false); return; }
+      setTimeout(check, 100);
+    })();
+  });
+}
+async function init(){
+  if (hasPyw){ await waitForApi(); }
+  await tick();
+  if (isPopup) renderPopup();
+}
+init();
+</script>
+</body>
+</html>

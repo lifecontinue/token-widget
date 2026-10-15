@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "version": "2.0.0",
+  "engine": "electron",
+  "electronExe": "C:/Users/haida/WorkBuddy/2026-08-10-09-11-39/token-dashboard/overlay/node_modules/electron/dist/electron.exe",
+  "electronApp": "C:/Users/haida/WorkBuddy/2026-08-10-09-11-39/token-dashboard/overlay",
+  "logFile": "logs/startup.log",
+  "lockFile": "logs/.widget.pid",
+  "maxRetries": 3,
+  "startupGraceSec": 30,
+  "launchCooldownSec": 15
+}

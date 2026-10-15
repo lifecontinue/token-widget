@@ -1,0 +1,20 @@
+{
+  "name": "token-widget-plugin",
+  "version": "1.0.0",
+  "description": "桌面 Token 消耗浮窗：WorkBuddy 启动时自动在桌面显示当前对话的 Input/Output token 实时消耗，点击展开完整明细。独立进程运行，不依赖宿主内部逻辑。",
+  "author": {
+    "name": "haida"
+  },
+  "keywords": [
+    "token",
+    "dashboard",
+    "widget",
+    "overlay",
+    "cost",
+    "usage"
+  ],
+  "category": "效率工具",
+  "skills": "./skills",
+  "commands": [],
+  "hooks": "./hooks/hooks.json"
+}
