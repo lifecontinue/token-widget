@@ -218,6 +218,22 @@ npm run build
 
 ---
 
+## WorkBuddy 插件集成（自动拉起浮窗）
+
+仓库里的 [`workbuddy-plugin/`](workbuddy-plugin/README.md) 是把本应用接进 WorkBuddy 的集成层：
+SessionStart hook 自动拉起浮窗、看门狗兜底、一键安装。
+
+```bash
+bash workbuddy-plugin/scripts/install.sh                      # 安装到 ~/.workbuddy/token-widget
+bash workbuddy-plugin/scripts/install.sh --autostart --desktop # 开机自启 + 桌面快捷方式
+```
+
+> ⚠️ **不要把项目放进 WorkBuddy 会话工作区**（`~/WorkBuddy/<日期时间戳>/`）——那是临时目录，会被清理。
+> 2026-10-14 浮窗整个消失就是因为应用放在会话工作区里。集成层与安装脚本已按此修复，详见
+> [`workbuddy-plugin/README.md`](workbuddy-plugin/README.md) 的事故复盘。
+
+---
+
 ## License
 
 MIT

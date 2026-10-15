@@ -11,6 +11,12 @@ dist/
 overlay/assets/*.png
 overlay/assets/*.ico
 
+# WorkBuddy plugin runtime artifacts
+workbuddy-plugin/logs/
+workbuddy-plugin/.venv/
+workbuddy-plugin/.widget.pid
+workbuddy-plugin/*.log
+
 # OS / editor
 .DS_Store
 Thumbs.db
